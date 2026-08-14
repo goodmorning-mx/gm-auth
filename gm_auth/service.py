@@ -22,6 +22,7 @@ class AuthSettings:
     refresh_days: int = 30
     reset_minutes: int = 30
     issuer: str = "goodmorning-auth"
+    legacy_password_verifier: Callable[[str, str, str], bool] | None = None
 
 
 AuditHook = Callable[[str, AuthIdentity | None, dict[str, Any]], None]
@@ -66,9 +67,15 @@ class AuthService:
     def login(self, *, email: str, password: str, organization_id: str | None = None) -> AuthTokens | None:
         with self.engine.connect() as connection:
             row = connection.execute(select(users).where(users.c.email == email.lower(), users.c.is_active.is_(True))).mappings().first()
-            if row is None or not verify_password(password, row["password_hash"]):
+            legacy_match = False
+            if row is not None and not verify_password(password, row["password_hash"]) and self.settings.legacy_password_verifier:
+                legacy_match = self.settings.legacy_password_verifier(email.lower(), password, str(row["password_hash"]))
+            if row is None or (not verify_password(password, row["password_hash"]) and not legacy_match):
                 self._audit("login.failed", None, {"email": email.lower()})
                 return None
+            if legacy_match:
+                with self.engine.begin() as write_connection:
+                    write_connection.execute(update(users).where(users.c.id == row["id"]).values(password_hash=hash_password(password)))
             query = select(memberships).where(memberships.c.user_id == row["id"])
             if organization_id:
                 query = query.where(memberships.c.organization_id == organization_id)
