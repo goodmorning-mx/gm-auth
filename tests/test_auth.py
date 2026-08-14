@@ -53,3 +53,17 @@ def test_fastapi_router_exposes_identity_and_generic_reset_response():
     token = response.json()["access_token"]
     assert client.get("/auth/me", headers={"Authorization": f"Bearer {token}"}).json()["organization_id"] == "ballet"
     assert client.post("/auth/password-reset/request", json={"email": "missing@example.com"}).json()["status"].startswith("If the account")
+
+
+def test_legacy_password_hook_rehashes_after_successful_login():
+    auth = service()
+    legacy_hash = "legacy-hash"
+    with auth.engine.begin() as connection:
+        from gm_auth.models import users
+        connection.execute(users.update().where(users.c.email == "admin@example.com").values(password_hash=legacy_hash))
+    legacy_auth = AuthService(auth.engine, AuthSettings("x" * 48, legacy_password_verifier=lambda email, password, stored: email == "admin@example.com" and password == "correct horse" and stored == legacy_hash))
+    assert legacy_auth.login(email="admin@example.com", password="correct horse") is not None
+    with auth.engine.connect() as connection:
+        from gm_auth.models import users
+        stored = connection.execute(users.select().with_only_columns(users.c.password_hash).where(users.c.email == "admin@example.com")).scalar_one_or_none()
+    assert stored != legacy_hash
