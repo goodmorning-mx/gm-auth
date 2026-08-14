@@ -1,0 +1,2 @@
+-- gm-auth schema is also available through gm_auth.metadata for Alembic.
+-- Products should run this migration in their own PostgreSQL database.

@@ -1,0 +1,15 @@
+{
+  "name": "gm-auth",
+  "version": "0.1.0",
+  "kind": "full-stack",
+  "backend_package": "gm-auth",
+  "frontend_package": "@goodmorning/gm-auth",
+  "python_requires": [],
+  "node_requires": ["react>=18", "react-dom>=18"],
+  "env": [],
+  "required_secrets": {},
+  "dependencies": [],
+  "migrations": {"mode": "sql", "path": "migrations", "minimum_schema": 1},
+  "compatibility": {"python": ">=3.12", "node": ">=20", "factory_api": "^1.0", "products": ["*"]},
+  "entrypoints": {"backend": "gm_auth:create_auth_router", "frontend": "@goodmorning/gm-auth"}
+}
