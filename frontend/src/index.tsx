@@ -20,18 +20,23 @@ export function createAuthClient(baseUrl: string): AuthClient {
   }
 }
 
-type AuthContextValue = { identity: AuthIdentity | null; accessToken: string | null; loading: boolean; error: string | null; login(email: string, password: string): Promise<void>; logout(): Promise<void> }
+type AuthContextValue = { identity: AuthIdentity | null; accessToken: string | null; loading: boolean; error: string | null; login(email: string, password: string, remember?: boolean): Promise<void>; logout(): Promise<void> }
 const AuthContext = createContext<AuthContextValue | null>(null)
 export function useAuth() { const value = useContext(AuthContext); if (!value) throw new Error('AuthProvider is required.'); return value }
 
 export function AuthProvider({ client, children }: { client: AuthClient; children: React.ReactNode }) {
-  const [tokens, setTokens] = useState<AuthTokens | null>(null); const [loading, setLoading] = useState(false); const [error, setError] = useState<string | null>(null)
-  useEffect(() => { const saved = sessionStorage.getItem('gm-auth-tokens'); if (saved) setTokens(JSON.parse(saved)) }, [])
-  useEffect(() => { if (tokens) sessionStorage.setItem('gm-auth-tokens', JSON.stringify(tokens)); else sessionStorage.removeItem('gm-auth-tokens') }, [tokens])
+  const [tokens, setTokens] = useState<AuthTokens | null>(null); const [remember, setRemember] = useState(false); const [loading, setLoading] = useState(false); const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    const saved = localStorage.getItem('gm-auth-tokens') || sessionStorage.getItem('gm-auth-tokens')
+    if (saved) {
+      try { setTokens(JSON.parse(saved)); setRemember(Boolean(localStorage.getItem('gm-auth-tokens'))) } catch { localStorage.removeItem('gm-auth-tokens'); sessionStorage.removeItem('gm-auth-tokens') }
+    }
+  }, [])
+  useEffect(() => { localStorage.removeItem('gm-auth-tokens'); sessionStorage.removeItem('gm-auth-tokens'); if (tokens) (remember ? localStorage : sessionStorage).setItem('gm-auth-tokens', JSON.stringify(tokens)) }, [remember, tokens])
   const value = useMemo<AuthContextValue>(() => ({
     identity: tokens?.identity || null, accessToken: tokens?.access_token || null, loading, error,
-    async login(email, password) { setLoading(true); setError(null); try { setTokens(await client.login(email, password)) } catch (e) { setError(e instanceof Error ? e.message : 'Unable to log in.'); throw e } finally { setLoading(false) } },
-    async logout() { if (tokens) await client.logout(tokens.refresh_token); setTokens(null) },
+    async login(email, password, shouldRemember = false) { setLoading(true); setError(null); try { setTokens(await client.login(email, password)); setRemember(shouldRemember) } catch (e) { setError(e instanceof Error ? e.message : 'Unable to log in.'); throw e } finally { setLoading(false) } },
+    async logout() { if (tokens) await client.logout(tokens.refresh_token); setTokens(null); setRemember(false) },
   }), [client, error, loading, tokens])
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
