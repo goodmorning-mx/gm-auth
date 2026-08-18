@@ -21,18 +21,29 @@ export function useAuth() { const value = useContext(AuthContext); if (!value)
     throw new Error('AuthProvider is required.'); return value; }
 export function AuthProvider({ client, children }) {
     const [tokens, setTokens] = useState(null);
+    const [remember, setRemember] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    useEffect(() => { const saved = sessionStorage.getItem('gm-auth-tokens'); if (saved)
-        setTokens(JSON.parse(saved)); }, []);
-    useEffect(() => { if (tokens)
-        sessionStorage.setItem('gm-auth-tokens', JSON.stringify(tokens));
-    else
-        sessionStorage.removeItem('gm-auth-tokens'); }, [tokens]);
+    useEffect(() => {
+        const saved = localStorage.getItem('gm-auth-tokens') || sessionStorage.getItem('gm-auth-tokens');
+        if (saved) {
+            try {
+                setTokens(JSON.parse(saved));
+                setRemember(Boolean(localStorage.getItem('gm-auth-tokens')));
+            }
+            catch {
+                localStorage.removeItem('gm-auth-tokens');
+                sessionStorage.removeItem('gm-auth-tokens');
+            }
+        }
+    }, []);
+    useEffect(() => { localStorage.removeItem('gm-auth-tokens'); sessionStorage.removeItem('gm-auth-tokens'); if (tokens)
+        (remember ? localStorage : sessionStorage).setItem('gm-auth-tokens', JSON.stringify(tokens)); }, [remember, tokens]);
     const value = useMemo(() => ({
         identity: tokens?.identity || null, accessToken: tokens?.access_token || null, loading, error,
-        async login(email, password) { setLoading(true); setError(null); try {
+        async login(email, password, shouldRemember = false) { setLoading(true); setError(null); try {
             setTokens(await client.login(email, password));
+            setRemember(shouldRemember);
         }
         catch (e) {
             setError(e instanceof Error ? e.message : 'Unable to log in.');
@@ -42,7 +53,7 @@ export function AuthProvider({ client, children }) {
             setLoading(false);
         } },
         async logout() { if (tokens)
-            await client.logout(tokens.refresh_token); setTokens(null); },
+            await client.logout(tokens.refresh_token); setTokens(null); setRemember(false); },
     }), [client, error, loading, tokens]);
     return _jsx(AuthContext.Provider, { value: value, children: children });
 }

@@ -27,7 +27,7 @@ type AuthContextValue = {
     accessToken: string | null;
     loading: boolean;
     error: string | null;
-    login(email: string, password: string): Promise<void>;
+    login(email: string, password: string, remember?: boolean): Promise<void>;
     logout(): Promise<void>;
 };
 export declare function useAuth(): AuthContextValue;
