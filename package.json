@@ -1,10 +1,10 @@
 {
   "name": "@goodmorning/gm-auth",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "type": "module",
   "main": "frontend/dist/index.js",
   "types": "frontend/dist/index.d.ts",
   "files": ["frontend/dist"],
-  "scripts": {"build": "npm --prefix frontend install && npm --prefix frontend run build", "prepare": "npm run build"},
+  "scripts": {"build": "npm --prefix frontend ci && npm --prefix frontend run build", "prepare": "npm run build"},
   "peerDependencies": {"react": ">=18", "react-dom": ">=18"}
 }
