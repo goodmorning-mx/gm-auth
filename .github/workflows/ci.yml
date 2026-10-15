@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install . pytest httpx
+      - run: python -m pytest
+      - run: python -m unittest discover -s tests -p 'test_package_contract.py' -v
+      - run: python -m compileall -q gm_auth
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --prefix frontend
+      - run: npm --prefix . run build
+      - run: npm --prefix . pack
+      - name: Install and import packed package in a clean consumer
+        run: |
+          set -euo pipefail
+          tarball="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -name 'goodmorning-gm-auth-*.tgz' -print -quit)"
+          consumer="$(mktemp -d)"
+          cd "$consumer"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund react@18 react-dom@18 "$tarball"
+          node --input-type=module -e "import('@goodmorning/gm-auth').then(m => { if (!m.AuthProvider || !m.AuthGuard || !m.Login || !m.UsersAdmin) process.exit(1) })"
